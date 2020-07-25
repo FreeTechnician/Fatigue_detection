@@ -8,7 +8,7 @@
 
 首先通过人脸关键点侦测，对关键点进行分析判断目光方向，头的朝向，是否犯困以及是否说话
 
-![21](https://github.com/FreeTechnician/Fatigue_detection.git/raw/master/img/21.jpg)
+![21](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/21.jpg)
 
 关键点检测是采用MTCNN的思想，先用小网络检测人脸，再用大网络回归关键点坐标
 
@@ -42,7 +42,7 @@ cuda10.1、cudnn7.6.5
 
 | 数据集原图：                                                 | 数据集与标签：                                               |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <img src=".\img\51_Dresses_wearingdress_51_377.jpg" alt="51_Dresses_wearingdress_51_377" style="zoom:50%;" /> | <img src=".\img\`75TUXZ4[3ZKG_Z%O]JS6{M.png" alt="`75TUXZ4[3ZKG_Z%O]JS6{M" style="zoom:50%;" /> |
+| <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/51_Dresses_wearingdress_51_377.jpg" alt="51_Dresses_wearingdress_51_377" style="zoom:50%;" /> | <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/`75TUXZ4[3ZKG_Z%O]JS6{M.png" alt="`75TUXZ4[3ZKG_Z%O]JS6{M" style="zoom:50%;" /> |
 
 ### dataset.py
 
@@ -52,9 +52,9 @@ cuda10.1、cudnn7.6.5
 
 这三个文件分别通过均值滤波、改变光照对比度、双边滤波进行数据集扩充
 
-| 原图：           | 均值滤波：        | 改变光照对比度：   | 双边滤波：         |
-| ---------------- | ----------------- | ------------------ | ------------------ |
-| ![](.\img\0.jpg) | ![](.\img\30.jpg) | ![2](.\img\10.jpg) | ![0](.\img\20.jpg) |
+| 原图：                                                       | 均值滤波：                                                   | 改变光照对比度：                                             | 双边滤波：                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| ![](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/0.jpg) | ![](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/30.jpg) | ![2](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/10.jpg) | ![0](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/20.jpg) |
 
 对WFLW数据集进行简单的处理，生成训练数据集
 
@@ -96,7 +96,7 @@ trainer.py同样适用于P_Net，但本次P网络是直接采用MTCNN中的P网�
 
 效果图：
 
-![19](.\img\19.jpg)
+![19](https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/19.jpg)
 
 ### video_detect.py
 
