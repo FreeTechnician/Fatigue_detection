@@ -165,7 +165,7 @@ class Detecter():
 if __name__ == '__main__':
     x = time.time()
     '''不计算梯度'''
-    video_path = r"D:\data\t_video.mp4"
+    video_path = r"D:\data\l_video.mp4"
     cap = cv2.VideoCapture(video_path)  # 创建视频对象
     # cap = cv2.VideoCapture("1.mp4")
     i = 0
