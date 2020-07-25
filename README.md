@@ -42,7 +42,7 @@ cuda10.1、cudnn7.6.5
 
 | 数据集原图：                                                 | 数据集与标签：                                               |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/51_Dresses_wearingdress_51_377.jpg" alt="51_Dresses_wearingdress_51_377" style="zoom:50%;" /> | <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/`75TUXZ4[3ZKG_Z%O]JS6{M.png" alt="`75TUXZ4[3ZKG_Z%O]JS6{M" style="zoom:50%;" /> |
+| <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/377.jpg" alt="51_Dresses_wearingdress_51_377" style="zoom:50%;" /> | <img src="https://github.com/FreeTechnician/Fatigue_detection/blob/master/img/378.jpg" alt="`75TUXZ4[3ZKG_Z%O]JS6{M" style="zoom:50%;" /> |
 
 ### dataset.py
 
