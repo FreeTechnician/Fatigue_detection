@@ -168,7 +168,7 @@ if __name__ == '__main__':
     '''不计算梯度'''
     with torch.no_grad() as grad:
 
-        img_path = r"11.jpg"
+        img_path = r"3.jpg"
         img = Image.open(img_path)
         dec = Detecter()
         cls, off, points = dec.detecter(img)
