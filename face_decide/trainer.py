@@ -20,6 +20,8 @@ class Trainer():
 
 
         self.cls_loss = nn.BCELoss()
+        # self.offset_loss = nn.SmoothL1Loss()
+        # self.cls_loss = nn.SmoothL1Loss
         self.offset_loss = nn.MSELoss()
 
         self.optimizer = optim.Adam(self.net.parameters())

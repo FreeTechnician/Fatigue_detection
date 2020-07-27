@@ -23,6 +23,11 @@ class Detecter():
         self.net.load_state_dict(torch.load(self.net_param))
         self.net.eval()
 
+        self.r_net_param = r"param\r_net.pth"
+        self.r_net = R_net().to(self.device)
+        self.r_net.load_state_dict(torch.load(self.r_net_param))
+        self.r_net.eval()
+
         self.img_transform = transforms.Compose([transforms.ToTensor()])
 
     def detecter(self,image):
@@ -37,10 +42,17 @@ class Detecter():
         end_time = time.time()
         t_pnet = end_time - start_time
         # print("结束")
+        start_time = time.time()
+        rnet_boxes = self.__rnet_detect(image, pnet_boxes)
 
+        if rnet_boxes.shape[0] == 0:
+            return np.array([])
+
+        end_time = time.time()
+        t_rnet = end_time - start_time
         '''再将P网络的输出和原图送入R网络中，并计算所用时间'''
         start_time = time.time()
-        net_boxes = self.net_detect(image, pnet_boxes)
+        net_boxes = self.net_detect(image, rnet_boxes)
         cls = net_boxes[:,4]
         off = net_boxes[:,0:4]
         points = net_boxes[:,5:]
@@ -49,8 +61,8 @@ class Detecter():
             return np.array([])
 
         end_time = time.time()
-        t_rnet = end_time - start_time
-        print("识别结束，用时：{}".format(t_pnet+t_rnet))
+        t_net = end_time - start_time
+        print("识别结束，用时：{}".format(t_pnet+t_rnet+t_net))
 
         return cls,off,points
 
@@ -102,6 +114,68 @@ class Detecter():
         y2 = _y2 + _h * _offset[3]
 
         return [x1, y1, x2, y2, cls]
+    def __rnet_detect(self, image, pnet_boxes):
+        _img_dataset = []
+        '''将输入的框进行正方形化'''
+        _pnet_boxes = convert_to_square(pnet_boxes)
+        p_offset_p = _pnet_boxes[:, 5:]
+
+        for _box in _pnet_boxes:
+            _x1 = int(_box[0])
+            _y1 = int(_box[1])
+            _x2 = int(_box[2])
+            _y2 = int(_box[3])
+            '''将输入的框进行截图'''
+            img = image.crop((_x1, _y1, _x2, _y2))
+            img = img.resize((24, 24))
+            img_data = self.img_transform(img)
+            _img_dataset.append(img_data)
+
+        img_dataset = torch.stack(_img_dataset)
+
+        img_dataset = img_dataset.to(self.device)
+
+        _cls, _offset = self.r_net(img_dataset)
+        _cls = _cls.cpu().data.numpy()
+        offset = _offset.cpu().data.numpy()
+
+        # r_offset_p = offset[:, 4:]
+        # offest_p = (r_offset_p  + p_offset_p ) / 2
+        # offset = np.hstack((offset[:, 0:5], offest_p))
+
+        boxes = []
+
+        idxs, _ = np.where(_cls > 0.5)
+        for idx in idxs:
+            _box = _pnet_boxes[idx]
+            _x1 = int(_box[0])
+            _y1 = int(_box[1])
+            _x2 = int(_box[2])
+            _y2 = int(_box[3])
+
+            ow = _x2 - _x1
+            oh = _y2 - _y1
+
+            x1 = _x1 + ow * offset[idx][0]
+            y1 = _y1 + oh * offset[idx][1]
+            x2 = _x2 + ow * offset[idx][2]
+            y2 = _y2 + oh * offset[idx][3]
+            cls = _cls[idx][0]
+
+            # offset_px1 = _x1 + ow * offset[idx][4]
+            # offset_py1 = _y1 + oh * offset[idx][5]
+            # offset_px2 = _x1 + ow * offset[idx][6]
+            # offset_py2 = _y1 + oh * offset[idx][7]
+            # offset_px3 = _x1 + ow * offset[idx][8]
+            # offset_py3 = _y1 + oh * offset[idx][9]
+            # offset_px4 = _x1 + ow * offset[idx][10]
+            # offset_py4 = _y1 + oh * offset[idx][11]
+            # offset_px5 = _x1 + ow * offset[idx][12]
+            # offset_py5 = _y1 + oh * offset[idx][13]
+
+            boxes.append([x1, y1, x2, y2, cls])
+
+        return nms(np.array(boxes), 0.3)
 
     def net_detect(self, image, pnet_boxes):
         _img_dataset = []

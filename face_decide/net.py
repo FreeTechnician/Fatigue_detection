@@ -85,6 +85,32 @@ class P_net(nn.Module):
         offset = self.conv2(y)
         return cls, offset
 
+class R_net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.r_layer = nn.Sequential(
+            nn.Conv2d(3, 28, 3, 1),
+            nn.PReLU(),
+            nn.MaxPool2d(3, 2, padding=1),
+            nn.Conv2d(28, 48, 3, 1),
+            nn.PReLU(),
+            nn.MaxPool2d(3, 2),
+            nn.Conv2d(48, 64, 2, 1)
+        )
+        self.liner1 = nn.Linear(64 * 3 * 3, 128)
+        self.prelu = nn.PReLU()
+        self.liner2 = nn.Linear(128, 1)
+        self.liner3 = nn.Linear(128, 14)
+        self.apply(weight_init)
+
+    def forward(self,x):
+        y = self.r_layer(x)
+        y = y.view(y.size(0), -1)
+        y = self.liner1(y)
+        y = self.prelu(y)
+        cls = torch.sigmoid(self.liner2(y))
+        offset = self.liner3(y)
+        return cls,offset
 if __name__ == '__main__':
     img = np.random.random([10,3,128,128])
     print(img.shape)

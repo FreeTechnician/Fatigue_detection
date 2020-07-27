@@ -13,7 +13,7 @@ class Detecter():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
-
+        # self.device = torch.device("cpu")
         self.p_net_param = r"param\p_net.pth"
         self.p_net = P_net().to(self.device)
         self.p_net.load_state_dict(torch.load(self.p_net_param))
@@ -23,6 +23,12 @@ class Detecter():
         self.net = MainNet().to(self.device)
         self.net.load_state_dict(torch.load(self.net_param))
         self.net.eval()
+
+        self.r_net_param = r"param\r_net.pth"
+        self.r_net = R_net().to(self.device)
+        self.r_net.load_state_dict(torch.load(self.r_net_param))
+        self.r_net.eval()
+
 
         self.img_transform = transforms.Compose([transforms.ToTensor()])
 
@@ -38,31 +44,52 @@ class Detecter():
         end_time = time.time()
         t_pnet = end_time - start_time
         # print("结束")
-
-        '''再将P网络的输出和原图送入R网络中，并计算所用时间'''
         start_time = time.time()
-        net_boxes = self.net_detect(image, pnet_boxes)
-        cls = net_boxes[:,4]
-        off = net_boxes[:,0:4]
-        points = net_boxes[:,5:]
+        rnet_boxes = self.__rnet_detect(image, pnet_boxes)
 
-        if net_boxes.shape[0] == 0:
+        if rnet_boxes.shape[0] == 0:
             return np.array([])
 
         end_time = time.time()
         t_rnet = end_time - start_time
-        print("识别结束，用时：{}".format(t_pnet+t_rnet))
+        # print("结束")
+        '''再将P网络的输出和原图送入R网络中，并计算所用时间'''
+        start_time = time.time()
+        net_boxes = self.net_detect(image, rnet_boxes)
+        if net_boxes.shape[0] == 0:
+            return np.array([])
+
+        cls = net_boxes[:,4]
+        off = net_boxes[:,0:4]
+        points = net_boxes[:,5:]
+
+
+
+        end_time = time.time()
+        t_net = end_time - start_time
+        print("识别结束，用时：{}".format(t_pnet+t_rnet + t_net))
 
         return cls,off,points
 
     def p_net_detect(self, image):
         boxes = []
+        # w,h = image.size
+        # img = image.resize((int(w/5),int(h/5)))
         img = image
         w, h = img.size
         max_side = max(w, h)
 
         scale = 1
-        while max_side > 12:
+        while max_side > 18:
+            scale *= 0.7
+            _w = int(w * scale)
+            _h = int(h * scale)
+            # print(_w, _h)
+
+            img = img.resize((_w, _h))
+            max_side = min(_w, _h)
+            if max_side > 128:
+                continue
 
             img_data = self.img_transform(img)
             img_data = img_data.to(self.device)
@@ -77,13 +104,7 @@ class Detecter():
                 boxes.append(self.find_box(ind, p_cls[ind[0], ind[1]], p_offset, scale))
             # print(len(boxes))
 
-            scale *= 0.7
-            _w = int(w * scale)
-            _h = int(h * scale)
-            # print(_w, _h)
 
-            img = img.resize((_w,_h))
-            max_side = min(_w,_h)
         return nms(np.array(boxes), 0.3)
         # return np.array(boxes)
 
@@ -103,6 +124,57 @@ class Detecter():
         y2 = _y2 + _h * _offset[3]
 
         return [x1, y1, x2, y2, cls]
+    def __rnet_detect(self, image, pnet_boxes):
+        _img_dataset = []
+        '''将输入的框进行正方形化'''
+        _pnet_boxes = convert_to_square(pnet_boxes)
+        p_offset_p = _pnet_boxes[:, 5:]
+
+        for _box in _pnet_boxes:
+            _x1 = int(_box[0])
+            _y1 = int(_box[1])
+            _x2 = int(_box[2])
+            _y2 = int(_box[3])
+            '''将输入的框进行截图'''
+            img = image.crop((_x1, _y1, _x2, _y2))
+            img = img.resize((24, 24))
+            img_data = self.img_transform(img)
+            _img_dataset.append(img_data)
+
+        img_dataset = torch.stack(_img_dataset)
+
+        img_dataset = img_dataset.to(self.device)
+
+        _cls, _offset = self.r_net(img_dataset)
+        _cls = _cls.cpu().data.numpy()
+        offset = _offset.cpu().data.numpy()
+
+        # r_offset_p = offset[:, 4:]
+        # offest_p = (r_offset_p  + p_offset_p ) / 2
+        # offset = np.hstack((offset[:, 0:5], offest_p))
+
+        boxes = []
+
+        idxs, _ = np.where(_cls > 0.5)
+        for idx in idxs:
+            _box = _pnet_boxes[idx]
+            _x1 = int(_box[0])
+            _y1 = int(_box[1])
+            _x2 = int(_box[2])
+            _y2 = int(_box[3])
+
+            ow = _x2 - _x1
+            oh = _y2 - _y1
+
+            x1 = _x1 + ow * offset[idx][0]
+            y1 = _y1 + oh * offset[idx][1]
+            x2 = _x2 + ow * offset[idx][2]
+            y2 = _y2 + oh * offset[idx][3]
+            cls = _cls[idx][0]
+
+            boxes.append([x1, y1, x2, y2, cls])
+
+        return nms(np.array(boxes), 0.3)
 
     def net_detect(self, image, pnet_boxes):
         _img_dataset = []
@@ -132,7 +204,11 @@ class Detecter():
 
         boxes = []
         cls_max = max(_cls)
-        idxs, _ = np.where(_cls == cls_max)
+        # idxs, _ = np.where(_cls >= max(0.95,cls_max))
+        idxs, _ = np.where(_cls >0.95)
+
+        if len(idxs) == 0:
+            return np.array([])
         for idx in idxs:
             _box = _pnet_boxes[idx]
             _x1 = int(_box[0])
@@ -165,16 +241,16 @@ class Detecter():
 if __name__ == '__main__':
     x = time.time()
     '''不计算梯度'''
-    video_path = r"D:\data\l_video.mp4"
+    video_path = r"D:\data\video\y_video.mp4"
     cap = cv2.VideoCapture(video_path)  # 创建视频对象
+
+    fps = cap.get(cv2.CAP_PROP_FPS)  # 获取帧速
+    print(fps)
     # cap = cv2.VideoCapture("1.mp4")
     i = 0
     while True:
         ret, img = cap.read()  # ret是否读成功,frame图像
-        # h,w,c = img.shape
-        # img = cv2.resize(img,(int(w/10),int(h/10)))
-        # if i % 2 == 0:
-        #     continue
+
 
         image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         with torch.no_grad() as grad:
@@ -182,17 +258,18 @@ if __name__ == '__main__':
             dec = Detecter()
             out = dec.detecter(image)
             if len(out) == 0:
+
                 continue
             cls, off, points = out
+
             for i in range(len(cls)):
-                # if i == 0:
-                #     continue
+
 
                 x1 = int(off[i][0])
                 y1 = int(off[i][1])
                 x2 = int(off[i][2])
                 y2 = int(off[i][3])
-                # cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 n = 196
                 j = 0
                 points_box = []
@@ -217,3 +294,6 @@ if __name__ == '__main__':
             break
     cap.release()  # 释放摄像头
     cv2.destroyAllWindows()  # 释放窗口
+
+
+
